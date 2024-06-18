@@ -1,0 +1,129 @@
+<!-- 
+ index.html - Ethereum Wallet
+ Author : Soto Jang (sotolabedu@gmail.com)
+ Copyright (c) Sunstar Since 2015. All Rights Reserved. See LICENSE file.
+ -->
+
+<!Doctype html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <script type="text/javascript" src="./js/web3.min.js"></script>
+    <script type="text/javascript" src="./js/ethereumjs-tx-1.3.3.min.js"></script>
+    <script src="https://code.jquery.com/jquery-latest.js"></script>
+    <script type="text/javascript" src="./js/qrcode.js"></script>
+
+    <!-- bootsrtap CSS -->
+    <link rel="stylesheet"
+          href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+
+    <title>My Ethereum Wallet</title>
+
+    <script>
+        $(document).ready(function () {
+            let DEBUG = 1;
+
+            let qrcode = new QRCode(document.getElementById("qrcode"), {
+	            width : 250,
+	            height : 250
+            });
+
+            const web3 = new Web3('https://sepolia.infura.io/v3/d61d7da648ba4f5eb12fc5a477ca5fe1');
+
+            let Buffer = ethereumjs.Buffer.Buffer;
+            let version = web3.version;
+
+            if (DEBUG) {
+                console.log('starting...');
+                console.log("Ropsten Ethereum API version : ", version);
+                console.log("web3: ", web3);
+            }
+
+            $('#send').on('click', async function () {
+                let fromaddress = $("#fromaddress").val();
+                let toaddress = $("#toaddress").val();
+                let sendcoin = $("#sendcoin").val();
+                let mypassword = $("#mypassword").val();
+
+                const privateKey = Buffer.from(mypassword, 'hex');
+                if (DEBUG) console.log("privateKey: ", privateKey);
+
+                web3.eth.getTransactionCount(fromaddress, (err, txCount) => {
+                    // Build the transaction
+                    const txObject = {
+                        nonce: web3.utils.toHex(txCount),
+                        to: toaddress,
+                        value: web3.utils.toHex(web3.utils.toWei(sendcoin, 'ether')),
+                        gasLimit: web3.utils.toHex(21000),
+                        gasPrice: web3.utils.toHex(web3.utils.toWei('10', 'gwei'))
+                    }
+
+                    const tx = new ethereumjs.Tx(txObject);
+                    tx.sign(privateKey);
+
+                    const serializedTx = tx.serialize()
+                    const raw = '0x' + serializedTx.toString('hex')
+
+                    web3.eth.sendSignedTransaction(raw, (err, txHash) => {
+                        console.log('txHash:', txHash)
+                    })
+                })
+            })
+
+            $('#getBalance').on('click', async function () {
+                let fromaddress = $("#fromaddress").val();
+
+                let getbalance = await web3.eth.getBalance(fromaddress);
+                let balance = web3.utils.fromWei(getbalance, "ether")
+
+                if (DEBUG) console.log("balance : ", balance + " ETH");
+                $('#message').text(" balance: " + balance + " ETH");
+            })
+
+            $('#newAccount').on('click', async function () {
+                let account = web3.eth.accounts.create();
+
+                if (DEBUG) console.log("privateKey : ", account.privateKey);
+                if (DEBUG) console.log("account : ", account.address);
+
+                $('#fromaddress').val(account.address);
+                $('#mypassword').val(account.privateKey);
+
+                makeQR();
+            })
+
+            function makeQR () {
+                let address = document.getElementById("fromaddress");
+
+                if (!address.value) {
+                    return;
+                }
+                qrcode.makeCode(address.value);
+            }
+        })
+    </script>
+</head>
+
+<body>
+<br>
+<br>
+<div class="container " role="main">
+    <h2><strong>Ethereum Wallet</strong></h2>
+    <div id="tablePlace"></div>
+    <button id="newAccount">Create</button>
+    <button id="getBalance">Check Balance</button>
+    <button id="send">Send</button>
+    <h5>Sender <input id="fromaddress" size="45" placeholder="Sender Address"></h5>
+    <h5>Recipient <input id="toaddress" size="45" placeholder="Recipient Address"></h5>
+    <h5>Coin <input id="sendcoin" size="45" placeholder="Coin"></h5>
+    <h5>Password <input type="password" id="mypassword" size="45" placeholder="Password"></h5>
+    <div id="message"></div>
+    <div id="qrcode" style="width:250px; height:250px; margin-top:15px;"></div>
+</div>
+<br>
+</body>
+</html>
+
